@@ -1,4 +1,4 @@
-from main import blockchain, validate_chain
+from Main import blockchain, validate_chain
 
 def validation_check():
     if validate_chain(blockchain):
@@ -6,5 +6,5 @@ def validation_check():
     else:
         print("Blockchain is invalid")
 
-if __name__=="__main__":
+if __name__=="__Main__":
     validation_check()
