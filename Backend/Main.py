@@ -1,17 +1,21 @@
 import json
 import time
 import hashlib
-
+from cryptography.fernet import Fernet
 from user_vote import get_vote
 from Block import Block
 from trancount import TransactionCount
 from smart_contract import VoteCounter
 
+# Encryption key (prototype use)
+ENCRYPTION_KEY = Fernet.generate_key()
+cipher = Fernet(ENCRYPTION_KEY)
 
 
 # Encrypt vote before adding to blockchain
-def encrypt_vote(vote: str) -> str:
-    return hashlib.sha256(vote.encode()).hexdigest()
+def encrypt_vote(vote: str) -> bytes:
+    return cipher.encrypt(vote.encode())
+
 
 
 # Creating the initial (genesis block)
@@ -89,6 +93,9 @@ try:
 
         #  Encrypt vote
         encrypted_vote = encrypt_vote(vote)
+
+        print("Plain vote:", vote)
+        print("Encrypted vote:", encrypted_vote)
 
         # Store ONLY encrypted vote on blockchain
         add_vote(encrypted_vote)
