@@ -6,8 +6,10 @@ from user_vote import get_vote
 from Block import Block
 from trancount import TransactionCount
 from smart_contract import VoteCounter
+from validation_checker import verify_vote
 
-# Encryption key (prototype use)
+
+# Encryption key
 ENCRYPTION_KEY = Fernet.generate_key()
 cipher = Fernet(ENCRYPTION_KEY)
 
@@ -53,7 +55,7 @@ def add_vote(encrypted_vote):
 
     # Add block to blockchain
     blockchain.append(new_block)
-    print("Blockchain is working with no errors:", new_block.block_hash)
+    print("Here is your hash recipt, you can use this to validate your vote at the end:", new_block.block_hash)
 
     # Increment transaction count
     transaction_counter.increment()
@@ -81,7 +83,6 @@ def validate_chain(chain):
     return True
 
 
-
 # Voting loop
 
 try:
@@ -99,6 +100,9 @@ try:
 
         # Store ONLY encrypted vote on blockchain
         add_vote(encrypted_vote)
+
+        # Ask voter if they want to verify their vote
+        verify_vote(blockchain)
 
         if validate_chain(blockchain):
             print("Blockchain is valid")
