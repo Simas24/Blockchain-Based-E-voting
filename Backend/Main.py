@@ -9,10 +9,21 @@ from trancount import TransactionCount
 from smart_contract import VoteCounter
 from validation_checker import verify_vote
 from authentication import init_db, register, login, voted
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes, serialization
 
 
-# Encryption key
-ENCRYPTION_KEY = Fernet.generate_key()
+# Storing encryption key or generating a new one and saving it
+KEY_FILE = "secret.key"
+
+if os.path.exists(KEY_FILE):
+    with open(KEY_FILE, "rb") as f:
+        ENCRYPTION_KEY = f.read()
+else:
+    ENCRYPTION_KEY = Fernet.generate_key()
+    with open(KEY_FILE, "wb") as f:
+        f.write(ENCRYPTION_KEY)
+
 cipher = Fernet(ENCRYPTION_KEY)
 
 
@@ -23,7 +34,7 @@ def encrypt_vote(vote: str) -> bytes:
 # Creating the initial (genesis block)
 def create_genesis_block():
     # index = 0, previous_hash = 0, placeholder to start blockchain
-    return Block(0, "0", "WUCUIYIRBESA")
+    return Block(0, "0", "WUCUIYIRBESA", signature=None)
 
 
 # Importing election info from smart contract
@@ -57,7 +68,7 @@ transaction_counter = TransactionCount()
 #Authentication System
 init_db()
 
-def add_vote(encrypted_vote):
+def add_vote(encrypted_vote, signature):
     # Find previous hash
     previous_hash = blockchain[-1].block_hash
 
@@ -65,7 +76,7 @@ def add_vote(encrypted_vote):
     index = len(blockchain)
 
     # Create new block
-    new_block = Block(index, previous_hash, encrypted_vote)
+    new_block = Block(index, previous_hash, encrypted_vote, signature)
 
     # Add block to blockchain
     blockchain.append(new_block)
@@ -114,7 +125,7 @@ while True:
         continue
 
     elif choice == "2":
-        user_id, has_voted, is_admin = login()
+        user_id, username, has_voted, is_admin = login()
 
         if user_id is None:
             print("Please login to continue.")
@@ -143,11 +154,27 @@ while True:
         #  Encrypt vote
         encrypted_vote = encrypt_vote(vote)
 
+
+        # Load voter's private key
+        with open(f"keys/{username}_private.key", "rb") as f:
+            private_key_bytes = f.read()
+        private_key = serialization.load_pem_private_key(private_key_bytes, password=None)
+
+        # Sign the plaintext vote
+        signature = private_key.sign(
+            vote.encode(),
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
+
         print("Plain vote:", vote)
         print("Encrypted vote:", encrypted_vote)
 
-        # Store ONLY encrypted vote on blockchain
-        add_vote(encrypted_vote)
+        # Store ONLY encrypted vote & signature on blockchain
+        add_vote(encrypted_vote, signature)
 
         # Mark user as already voted
         voted(user_id)

@@ -2,6 +2,9 @@ import sqlite3
 import hashlib
 import re
 import datetime
+import os
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
 
 DATABASE = "users.db"
 
@@ -84,7 +87,43 @@ def register(admin=False):
     except sqlite3.IntegrityError:
         print("Username already exists.")
 
+    conn.commit()
+
+    # Ensure folder exists
+    os.makedirs("keys", exist_ok=True)
+
+    # Generate RSA key pair for the voter
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public_key = private_key.public_key()
+
+    # Serialize keys
+    priv_bytes = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+    pub_bytes = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+
+    # Save private key locally
+    with open(f"keys/{username}_private.key", "wb") as f:
+        f.write(priv_bytes)
+
+    # Save public key in DB (add column if needed)
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN public_key TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    cursor.execute("UPDATE users SET public_key=? WHERE username=?",
+                   (pub_bytes.decode('utf-8'), username))
+    conn.commit()
     conn.close()
+
+
+
 
 
 # Existing voter/admin login
@@ -135,7 +174,7 @@ def login(admin_required=False):
                     return None
             else:
                 print("Login successful.")
-                return user_id, has_voted, is_admin
+                return user_id, username, has_voted, is_admin
 
         else:
             # handle failed attempt
