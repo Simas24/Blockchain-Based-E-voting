@@ -144,115 +144,115 @@ def validate_chain(chain):
 
     return True
 
+if __name__ == "__main__":
+    # Voting loop
+    while True:
+        print("\n--- Welcome to the E-Voting System ---")
+        print("1. Register")
+        print("2. Login")
+        print("3. Exit and Show Results")
 
-# Voting loop
-while True:
-    print("\n--- Welcome to the E-Voting System ---")
-    print("1. Register")
-    print("2. Login")
-    print("3. Exit and Show Results")
+        choice = input("Select option: ").strip()
 
-    choice = input("Select option: ").strip()
-
-    if choice == "1":
-        register()
-        continue
-
-    elif choice == "2":
-        user_id, username, has_voted, is_admin = login()
-
-        if user_id is None:
-            print("Please login to continue.")
+        if choice == "1":
+            register()
             continue
 
-        # When user already voted
-        if has_voted:
-            print("\nYou have already voted.")
-            print("You can verify your vote using your receipt.")
-            verify_vote(blockchain)
-            continue
+        elif choice == "2":
+            user_id, username, has_voted, is_admin = login()
 
-        # Refuse vote after an election has been closed
-        with open("election.json", "r") as f:
-            election_data = json.load(f)
+            if user_id is None:
+                print("Please login to continue.")
+                continue
 
-        if election_data.get("status") == "closed":
-            print("Election has ended. Voting is closed.")
-            continue
-        # If user has not voted, allow voting
-        vote = get_vote()
+            # When user already voted
+            if has_voted:
+                print("\nYou have already voted.")
+                print("You can verify your vote using your receipt.")
+                verify_vote(blockchain)
+                continue
 
-        # Smart contract auto-tally (plaintext vote)
-        counter.add_vote(vote)
-
-        #  Encrypt vote
-        encrypted_vote = encrypt_vote(vote)
-
-
-        # Load voter's private key
-        with open(f"keys/{username}_private.key", "rb") as f:
-            private_key_bytes = f.read()
-        private_key = serialization.load_pem_private_key(private_key_bytes, password=None)
-
-        # Sign the encrypted vote
-        signature = private_key.sign(
-            encrypted_vote,
-            padding.PSS(
-                mgf=padding.MGF1(hashes.SHA256()),
-                salt_length=padding.PSS.MAX_LENGTH
-            ),
-            hashes.SHA256()
-        )
-
-        print("Plain vote:", vote)
-        print("Encrypted vote:", encrypted_vote)
-
-        # Store ONLY encrypted vote & signature on blockchain
-        add_vote(encrypted_vote, signature)
-
-        # Mark user as already voted
-        voted(user_id)
-
-        print("\nYou have successfully voted.")
-        print("You are now logged out.")
-        print("You can log in anytime to verify your vote using your receipt.")
-
-        # After voting, return to main menu
-        continue
-
-    elif choice == "3":
-        print("\nCurrent tally is:")
-        counter.display_counts()
-
-        if validate_chain(blockchain):
-            print("Blockchain integrity verified.")
-        else:
-            print("Warning: Blockchain integrity failed!")
-
-        continue
-
-    elif choice == "4" and is_admin:
-        # Admin chooses to end election
-        confirm = input("Are you sure you want to end this election? (y/n): ").strip().lower()
-        if confirm == "y":
-            # Update election status in JSON
+            # Refuse vote after an election has been closed
             with open("election.json", "r") as f:
-                data = json.load(f)
-            data["status"] = "closed"
-            with open("election.json", "w") as f:
-                json.dump(data, f)
+                election_data = json.load(f)
 
-            # Output the winner of the election
-            print("Election has been ended.")
-            print("Final results:")
+            if election_data.get("status") == "closed":
+                print("Election has ended. Voting is closed.")
+                continue
+
+            # If user has not voted, allow voting
+            vote = get_vote()
+
+            # Smart contract auto-tally (plaintext vote)
+            counter.add_vote(vote)
+
+            # Encrypt vote
+            encrypted_vote = encrypt_vote(vote)
+
+            # Load voter's private key
+            with open(f"keys/{username}_private.key", "rb") as f:
+                private_key_bytes = f.read()
+            private_key = serialization.load_pem_private_key(private_key_bytes, password=None)
+
+            # Sign the encrypted vote
+            signature = private_key.sign(
+                encrypted_vote,
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
+
+            print("Plain vote:", vote)
+            print("Encrypted vote:", encrypted_vote)
+
+            # Store ONLY encrypted vote & signature on blockchain
+            add_vote(encrypted_vote, signature)
+
+            # Mark user as already voted
+            voted(user_id)
+
+            print("\nYou have successfully voted.")
+            print("You are now logged out.")
+            print("You can log in anytime to verify your vote using your receipt.")
+
+            # After voting, return to main menu
+            continue
+
+        elif choice == "3":
+            print("\nCurrent tally is:")
             counter.display_counts()
-        else:
-            print("Returning to menu.")
-        continue
 
-    else:
-        print("Invalid choice. Please select a valid option.")
-        continue
+            if validate_chain(blockchain):
+                print("Blockchain integrity verified.")
+            else:
+                print("Warning: Blockchain integrity failed!")
+
+            continue
+
+        elif choice == "4" and is_admin:
+            # Admin chooses to end election
+            confirm = input("Are you sure you want to end this election? (y/n): ").strip().lower()
+            if confirm == "y":
+                # Update election status in JSON
+                with open("election.json", "r") as f:
+                    data = json.load(f)
+                data["status"] = "closed"
+                with open("election.json", "w") as f:
+                    json.dump(data, f)
+
+                # Output the winner of the election
+                print("Election has been ended.")
+                print("Final results:")
+                counter.display_counts()
+            else:
+                print("Returning to menu.")
+            continue
+
+        else:
+            print("Invalid choice. Please select a valid option.")
+            continue
 
 
 

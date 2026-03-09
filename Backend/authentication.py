@@ -59,15 +59,23 @@ def valid_password(password):
     return True
 
 # New Voter/Admin Registration
-def register(admin=False):
-    username = input("Enter username: ")
-    while True:
-        password = input("Enter password: ")
+def register(username=None, password=None, admin=False):
+    if username is None:
+        username = input("Enter username: ")
 
-        if valid_password(password):
-            break
-        else:
-            print("Password must be at least 12 characters long, contain at least: 1 uppercase letter, 1 number & 1 special character")
+    if password is None:
+        while True:
+            password = input("Enter password: ")
+
+            if valid_password(password):
+                break
+            else:
+                print("Password must be at least 12 characters long, contain at least: 1 uppercase letter, 1 number & 1 special character")
+
+    # validate password for script input as well
+    if not valid_password(password):
+        print("Password does not meet requirements.")
+        return
 
     password_hash = hash_password(password)
 
@@ -127,9 +135,14 @@ def register(admin=False):
 
 
 # Existing voter/admin login
-def login(admin_required=False):
-    username = input("Username: ")
-    password = input("Password: ")
+def login(username=None, password=None, admin_required=False):
+
+    if username is None:
+        username = input("Username: ")
+
+    if password is None:
+        password = input("Password: ")
+
     password_hash = hash_password(password)
 
     conn = sqlite3.connect(DATABASE)
