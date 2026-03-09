@@ -2,9 +2,10 @@ import json
 import time
 import hashlib
 import os
+import sqlite3
 from cryptography.fernet import Fernet
 from user_vote import get_vote
-from Block import Block
+from Block import Block, verify_signature
 from trancount import TransactionCount
 from smart_contract import VoteCounter
 from validation_checker import verify_vote
@@ -34,7 +35,11 @@ def encrypt_vote(vote: str) -> bytes:
 # Creating the initial (genesis block)
 def create_genesis_block():
     # index = 0, previous_hash = 0, placeholder to start blockchain
-    return Block(0, "0", "WUCUIYIRBESA", signature=None)
+    genesis = Block(0, "0", "WUCUIYIRBESA", signature=None)
+
+# Save to blockchain_backup immediately
+    genesis.export_to_json()
+    return genesis
 
 
 # Importing election info from smart contract
@@ -58,7 +63,7 @@ if os.path.exists(backup_folder) and os.listdir(backup_folder):
     # Load all block JSON files sorted by index
     files = sorted(os.listdir(backup_folder), key=lambda x: int(x.split("_")[1].split(".")[0]))
     for file in files:
-        blockchain.append(Block.load_from_json(os.path.join(backup_folder, file)))
+        blockchain.append(Block.load_from_json(os.path.join(backup_folder,  file)))
 else:
     # No backup found, create genesis block
     blockchain = [create_genesis_block()]
@@ -103,6 +108,24 @@ def validate_chain(chain):
         # Check block hash integrity
         if current_block.block_hash != current_block.calculate_hash():
             return False
+
+        # Verify signature if present
+        if current_block.signature:
+
+            conn = sqlite3.connect("users.db")
+            cursor = conn.cursor()
+            cursor.execute("SELECT username, public_key FROM users")
+            users = cursor.fetchall()
+            conn.close()
+
+            valid = False
+            for username, public_key_pem in users:
+                if verify_signature(current_block.encrypted_vote, current_block.signature, public_key_pem):
+                    valid = True
+                    break
+            if not valid:
+                print(f"Invalid signature detected in block {current_block.index}")
+                return False
 
         # Check sequential index
         if current_block.index != previous_block.index + 1:
@@ -160,9 +183,9 @@ while True:
             private_key_bytes = f.read()
         private_key = serialization.load_pem_private_key(private_key_bytes, password=None)
 
-        # Sign the plaintext vote
+        # Sign the encrypted vote
         signature = private_key.sign(
-            vote.encode(),
+            encrypted_vote,
             padding.PSS(
                 mgf=padding.MGF1(hashes.SHA256()),
                 salt_length=padding.PSS.MAX_LENGTH

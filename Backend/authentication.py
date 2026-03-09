@@ -152,7 +152,7 @@ def login(admin_required=False):
             if datetime.datetime.utcnow() < lock_time_obj:
                 print(f"Account locked until {lock_time_obj}.")
                 conn.close()
-                return None if admin_required else (None, None, None)
+                return None if admin_required else (None, None, None, None)
 
         # check password
         if stored_hash == password_hash:
@@ -197,12 +197,12 @@ def login(admin_required=False):
 
             conn.commit()
             conn.close()
-            return None if admin_required else (None, None, None)
+            return None if admin_required else (None, None, None, None)
 
     else:
         print("Invalid credentials.")
         conn.close()
-        return None if admin_required else (None, None, None)
+        return None if admin_required else (None, None, None, None)
 
 
 # Mark User As Voted
