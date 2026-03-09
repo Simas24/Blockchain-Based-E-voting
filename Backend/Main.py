@@ -3,6 +3,7 @@ import time
 import hashlib
 import os
 import sqlite3
+import qrcode
 from cryptography.fernet import Fernet
 from user_vote import get_vote
 from Block import Block, verify_signature
@@ -86,6 +87,16 @@ def add_vote(encrypted_vote, signature):
     # Add block to blockchain
     blockchain.append(new_block)
     print("Here is your hash receipt, you can use this to validate your vote at the end:", new_block.block_hash)
+
+    # Create, display & save qr code
+    url = (new_block.block_hash) .strip()
+    qr = qrcode.QRCode()
+    qr.add_data(url)
+    qr.make(fit=True)
+    img = qr.make_image()
+    print("Here is your QR code which displays you verification receipt")
+    img.show()
+    img.save(f"qr_receipts/{new_block.block_hash}.png")
 
     # Increment transaction count
     transaction_counter.increment()
